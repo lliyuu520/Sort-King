@@ -1,0 +1,90 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "Sort-King",
+  "description": "分类之王 - 儿童归类益智小游戏",
+  "appid": "wx0610fae0dd676769",
+  "compileType": "game",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "minified": true,
+    "postcss": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "compileWorklet": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "packOptions": {
+    "ignore": [
+      {
+        "value": "assets",
+        "type": "folder"
+      },
+      {
+        "value": "docs",
+        "type": "folder"
+      },
+      {
+        "value": "scripts",
+        "type": "folder"
+      },
+      {
+        "value": "css",
+        "type": "folder"
+      },
+      {
+        "value": ".idea",
+        "type": "folder"
+      },
+      {
+        "value": ".zcode",
+        "type": "folder"
+      },
+      {
+        "value": "__pycache__",
+        "type": "folder"
+      },
+      {
+        "value": ".env",
+        "type": "file"
+      },
+      {
+        "value": "index.html",
+        "type": "file"
+      },
+      {
+        "value": "js/test-logic.js",
+        "type": "file"
+      },
+      {
+        "value": "js/main.js",
+        "type": "file"
+      },
+      {
+        "value": "AGENTS.md",
+        "type": "file"
+      },
+      {
+        "value": "CLAUDE.md",
+        "type": "file"
+      }
+    ],
+    "include": []
+  },
+  "simulatorPluginLibVersion": {},
+  "isGameTourist": false,
+  "editorSetting": {}
+}

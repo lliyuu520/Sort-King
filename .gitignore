@@ -1,0 +1,10 @@
+.zcode/
+.env
+.idea/
+.DS_Store
+Thumbs.db
+__pycache__/
+node_modules/
+*.log
+project.private.config.json
+client/.creator/
