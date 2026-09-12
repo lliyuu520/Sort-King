@@ -128,6 +128,48 @@ assert(g3.state.screen === "win", "level 1 can win by clearing 2 bins");
 assert((g3.state.progress.stars["1"] || 0) >= 1, "star saved");
 assert(g3.state.progress.unlocked >= 2, "level 2 unlocked");
 
+const g4 = makeGame();
+g4.startSlice();
+assert(g4.state.mode === "slice", "slice mode");
+assert(g4.state.screen === "game", "slice starts in game");
+assert(g4.state.bins.length === 3, "slice 3 bins");
+assert(g4.state.bins.map((b) => b.cat).join(",") === "fruit,sport,vehicle", "fruit sport vehicle");
+assert(g4.state.bins.every((b) => b.revealed), "slice bins labeled");
+assert(g4.state.slots.length === 4 && g4.state.slots.every(Boolean), "slice 4 hand");
+assert(g4.state.deck.length === 14, "18 cards minus 4 hand");
+assert(g4.state.slots.every((s) => s && s.id), "hand cards have ids");
+
+const fruitBin = g4.state.bins.find((b) => b.cat === "fruit")!;
+const vehicleBin = g4.state.bins.find((b) => b.cat === "vehicle")!;
+g4.state.lockUntil = 0;
+g4.state.slots[0] = { id: "item-apple", key: "apple", flipAt: 0 };
+const wrong = g4.placeItem("item-apple", vehicleBin.id);
+assert(wrong.success === false && wrong.reason === "WRONG_CATEGORY", "wrong category rejected");
+assert(g4.state.slots[0] && g4.state.slots[0]!.key === "apple", "wrong place keeps hand");
+assert(vehicleBin.items.length === 0, "wrong place does not enter");
+assert(g4.state.screen === "game", "no game over on wrong");
+
+g4.state.lockUntil = 0;
+const okPlace = g4.placeItem("item-apple", fruitBin.id);
+assert(okPlace.success === true, "apple into fruit");
+assert(okPlace.completed === false, "not full yet");
+assert(fruitBin.items[0] === "apple", "apple in fruit bin");
+assert(g4.state.slots.every(Boolean) || g4.visibleCount() <= 4, "hand refilled or finite");
+
+const g5 = makeGame();
+g5.startSlice();
+const fill = g5.state.bins.find((b) => b.cat === "fruit")!;
+for (let n = 0; n < BIN_MAX; n++) {
+  g5.state.lockUntil = 0;
+  g5.state.slots[0] = { id: "fill-" + n, key: "apple", flipAt: 0 };
+  const r = g5.placeItem("fill-" + n, fill.id);
+  assert(r.success, "slice fill " + n);
+  if (n === BIN_MAX - 1) assert(r.completed === true, "5th completes");
+}
+assert(fill.items.length === 0, "slice bin cleared at 5");
+assert(g5.state.binsCleared === 1, "slice binsCleared 1");
+assert(g5.state.screen === "game", "slice has no game over");
+
 if (fail === 0) {
   console.log("✓ 规则测试通过");
   console.log("  - 首次 4 张已翻开");
@@ -135,6 +177,7 @@ if (fail === 0) {
   console.log("  - 第一次放对揭盖");
   console.log("  - 满 5 消除");
   console.log("  - 第 1 关过关解锁下一关");
+  console.log("  - 切片 3 盒 / placeItem / 放错不失败 / 满 5 清空");
 } else {
   console.error(`✗ ${fail} 项失败`);
   process.exit(1);

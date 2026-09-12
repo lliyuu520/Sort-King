@@ -44,6 +44,16 @@ export function cylinderMesh(rTop: number, rBot: number, h: number): Mesh {
   return meshOf(`cyl_${rTop}_${rBot}_${h}`, primitives.cylinder(rTop, rBot, h, { radialSegments: 16 }));
 }
 
+export function capsuleMesh(r: number, h: number): Mesh {
+  try {
+    const cap = (primitives as { capsule?: (a: number, b: number, c: number, d?: object) => unknown }).capsule;
+    if (typeof cap === "function") {
+      return meshOf(`cap_${r}_${h}`, cap(r, r, h, { sides: 12 }) as Parameters<typeof utils.MeshUtils.createMesh>[0]);
+    }
+  } catch (_) {}
+  return cylinderMesh(r, r, h);
+}
+
 export function planeMesh(w: number, l: number): Mesh {
   return meshOf(`pl_${w}_${l}`, primitives.plane({ width: w, length: l, widthSegments: 1, lengthSegments: 1 }));
 }

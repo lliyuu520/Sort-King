@@ -51,7 +51,7 @@ export const CATEGORIES: Record<CatKey, CategoryDef> = {
   toy: { key: "toy", name: "玩具", nameEn: "Toys", color: "#EC7063", soft: "#FADBD8", border: "#C0392B" },
   daily: { key: "daily", name: "日用品", nameEn: "Daily", color: "#48C9B0", soft: "#D1F2EB", border: "#1ABC9C" },
   animal: { key: "animal", name: "动物", nameEn: "Animals", color: "#F5B041", soft: "#FCF3CF", border: "#D68910" },
-  vehicle: { key: "vehicle", name: "交通工具", nameEn: "Vehicles", color: "#5499C7", soft: "#D6EAF8", border: "#2471A3" },
+  vehicle: { key: "vehicle", name: "车辆", nameEn: "Vehicles", color: "#5499C7", soft: "#D6EAF8", border: "#2471A3" },
   clothes: { key: "clothes", name: "服装", nameEn: "Clothes", color: "#C39BD3", soft: "#EBDEF0", border: "#8E44AD" },
   sport: { key: "sport", name: "运动", nameEn: "Sports", color: "#52BE80", soft: "#D5F5E3", border: "#1E8449" },
 };
@@ -125,6 +125,21 @@ export const ITEMS: Record<string, ItemDef> = {
 };
 
 export const DEFAULT_CATS: CatKey[] = ["drink", "snack", "fruit", "veg"];
+
+/** 第一阶段 3D 垂直切片：3 分类 × 9 物品 */
+export const SLICE_CATS: CatKey[] = ["fruit", "sport", "vehicle"];
+export const SLICE_ITEM_KEYS = [
+  "apple",
+  "banana",
+  "watermelon",
+  "basketball",
+  "football",
+  "badminton",
+  "car",
+  "bus",
+  "bike",
+] as const;
+export const SLICE_DECK_COPIES = 2;
 
 export const CAT_MIXES: Record<string, CatKey[]> = {
   base: ["drink", "snack", "fruit", "veg"],

@@ -29,12 +29,11 @@ class Session {
     const g = this.ensure();
     const p = this.pending;
     this.pending = null;
-    if (!p) {
-      g.startInfinite();
+    if (!p || p.mode === "infinite") {
+      g.startSlice();
       return;
     }
-    if (p.mode === "infinite") g.startInfinite();
-    else g.startLevel(p.index);
+    g.startLevel(p.index);
   }
 
   goPlay(pending: PendingStart): void {

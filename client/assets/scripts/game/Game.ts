@@ -12,6 +12,9 @@ import {
   LEVELS,
   SCORE_BIN,
   SCORE_PLACE,
+  SLICE_CATS,
+  SLICE_DECK_COPIES,
+  SLICE_ITEM_KEYS,
   SLOT_COUNT,
   STORAGE_PROGRESS,
   catDef,
@@ -20,17 +23,20 @@ import {
   type ItemDef,
   type LevelDef,
 } from "./catalog";
+import type { PlaceBin, PlaceResult, GameItem } from "./GameTypes";
 import type { I18n } from "./i18n";
 
 export type ScreenId = "home" | "levelSelect" | "game" | "win";
-export type ModeId = "infinite" | "level";
+export type ModeId = "infinite" | "level" | "slice";
 
 export interface SlotCard {
+  id: string;
   key: string;
   flipAt: number;
 }
 
 export interface BinState {
+  id: string;
   cat: CatKey;
   items: string[];
   /** 第一次放对后显示分类名 */
@@ -41,6 +47,7 @@ export interface BinState {
 export interface DragState {
   from: { kind: "slot"; i: number };
   type: string;
+  id: string;
   x: number;
   y: number;
 }
@@ -132,6 +139,7 @@ export class Game {
   readonly DEFAULT_CATS = DEFAULT_CATS;
 
   readonly state: GameState;
+  private seq = 0;
 
   constructor(private deps: GameDeps) {
     this.state = {
@@ -183,6 +191,12 @@ export class Game {
   goalText(): string | null {
     const { state } = this;
     if (state.mode === "infinite") return null;
+    if (state.mode === "slice") {
+      const en = this.deps.i18n.isEn();
+      return en
+        ? `Fill 5 to clear (${state.binsCleared} cleared)`
+        : `装满 5 个消除（已清 ${state.binsCleared} 盒）`;
+    }
     const g = LEVELS[state.levelIndex].goal;
     const en = this.deps.i18n.isEn();
     if (g.type === "bins") {
@@ -217,6 +231,88 @@ export class Game {
     this.state.screen = "game";
   }
 
+  startSlice(): void {
+    this.state.mode = "slice";
+    this.resetRun(SLICE_CATS, { finite: true, revealBins: true });
+    this.state.screen = "game";
+  }
+
+  binCount(): number {
+    return this.state.bins.length;
+  }
+
+  snapshotBin(bin: BinState): PlaceBin {
+    return {
+      id: bin.id,
+      category: bin.cat,
+      capacity: BIN_MAX,
+      items: bin.items.map((key, i) => ({
+        id: `${bin.id}-${i}-${key}`,
+        key,
+        category: bin.cat,
+      })),
+    };
+  }
+
+  snapshotItem(id: string, key: string): GameItem {
+    const def = itemDef(key);
+    return { id, key, category: def ? def.category : "" };
+  }
+
+  /**
+   * 纯规则落点：不碰节点。itemId 是 SlotCard.id（或当前 drag.id），binId 是 BinState.id。
+   */
+  placeItem(itemId: string, binId: string): PlaceResult {
+    const { state } = this;
+    if (this.locked() || state.screen !== "game") {
+      return { success: false, reason: "NOT_FOUND", item: null, bin: null };
+    }
+    const bin = state.bins.find((b) => b.id === binId) || null;
+    const drag = state.drag && state.drag.id === itemId ? state.drag : null;
+    const slotI = state.slots.findIndex((s) => s && s.id === itemId);
+    const slot = slotI >= 0 ? state.slots[slotI] : null;
+    const key = drag ? drag.type : slot ? slot.key : "";
+    const id = drag ? drag.id : slot ? slot.id : itemId;
+    if ((!drag && !slot) || !bin) {
+      return {
+        success: false,
+        reason: "NOT_FOUND",
+        item: key ? this.snapshotItem(id, key) : null,
+        bin: bin ? this.snapshotBin(bin) : null,
+      };
+    }
+    const item = this.snapshotItem(id, key);
+    const def = itemDef(key);
+    if (!def || def.category !== bin.cat) {
+      state.streak = 0;
+      bin.flashUntil = this.deps.now() + 280;
+      this.audio().reject();
+      this.setToast(this.deps.i18n.t("toast_wrong"), 800);
+      this.deps.vibrate(40);
+      return { success: false, reason: "WRONG_CATEGORY", item, bin: this.snapshotBin(bin) };
+    }
+
+    if (slotI >= 0) state.slots[slotI] = null;
+    if (drag) state.drag = null;
+    bin.items.push(key);
+    bin.revealed = true;
+    state.score += SCORE_PLACE + streakBonus(state.streak);
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    this.audio().place();
+
+    const completed = bin.items.length >= BIN_MAX;
+    if (completed) this.clearBin(state.bins.indexOf(bin));
+    this.refillHand(true);
+
+    return {
+      success: true,
+      completed,
+      item,
+      bin: this.snapshotBin(bin),
+    };
+  }
+
   startLevel(index: number): void {
     if (index < 0 || index >= LEVELS.length) return;
     if (index + 1 > this.state.progress.unlocked) return;
@@ -243,7 +339,7 @@ export class Game {
     const slot = state.slots[i];
     if (!slot) return false;
     if (slot.flipAt && this.deps.now() - slot.flipAt < DEAL_MS) return false;
-    state.drag = { from: { kind: "slot", i }, type: slot.key, x: 0, y: 0 };
+    state.drag = { from: { kind: "slot", i }, type: slot.key, x: 0, y: 0, id: slot.id };
     state.slots[i] = null;
     this.audio().pick();
     return true;
@@ -321,7 +417,12 @@ export class Game {
     this.refillDeck();
     if (!this.state.deck.length) return false;
     const key = this.state.deck.pop() as string;
-    this.state.slots[i] = { key, flipAt: animate === false ? 0 : this.deps.now() };
+    this.seq += 1;
+    this.state.slots[i] = {
+      id: `item-${this.seq}`,
+      key,
+      flipAt: animate === false ? 0 : this.deps.now(),
+    };
     if (animate !== false) this.audio().spawn();
     return true;
   }
@@ -366,17 +467,25 @@ export class Game {
     } catch (_) {}
   }
 
-  private resetRun(cats: CatKey[]): void {
-    const next = cats.slice(0, 4);
-    while (next.length < 4) {
-      const extra = DEFAULT_CATS.find((c) => next.indexOf(c) < 0);
-      next.push(extra || DEFAULT_CATS[next.length % 4]);
+  private resetRun(cats: CatKey[], opts?: { finite?: boolean; revealBins?: boolean }): void {
+    const next = cats.slice();
+    if (!opts?.finite) {
+      while (next.length < 4) {
+        const extra = DEFAULT_CATS.find((c) => next.indexOf(c) < 0);
+        next.push(extra || DEFAULT_CATS[next.length % 4]);
+      }
     }
     this.state.cats = next;
-    this.state.bins = next.map((c) => ({ cat: c, items: [], revealed: false, flashUntil: 0 }));
+    this.state.bins = next.map((c, i) => ({
+      id: `bin-${c}-${i}`,
+      cat: c,
+      items: [],
+      revealed: !!opts?.revealBins,
+      flashUntil: 0,
+    }));
     this.state.deck = [];
     this.state.slots = [];
-    this.refillDeck();
+    this.refillDeck(opts?.finite);
     for (let i = 0; i < SLOT_COUNT; i++) this.dealToSlot(i, false);
     this.state.score = 0;
     this.state.streak = 0;
@@ -389,7 +498,22 @@ export class Game {
     this.state.lockUntil = 0;
   }
 
-  private refillDeck(): void {
+  private refillDeck(initFinite?: boolean): void {
+    if (this.state.mode === "slice" || initFinite) {
+      if (!initFinite || this.state.deck.length) return;
+      const keys: string[] = [];
+      for (let n = 0; n < SLICE_DECK_COPIES; n++) {
+        for (const k of SLICE_ITEM_KEYS) keys.push(k);
+      }
+      for (let i = keys.length - 1; i > 0; i--) {
+        const j = Math.floor(this.rand() * (i + 1));
+        const t = keys[i];
+        keys[i] = keys[j];
+        keys[j] = t;
+      }
+      this.state.deck = keys;
+      return;
+    }
     while (this.state.deck.length < DECK_SIZE) this.state.deck.push(this.dealKey());
   }
 
@@ -412,7 +536,9 @@ export class Game {
   private putBack(drag: DragState): void {
     if (drag.from && drag.from.kind === "slot") {
       const i = drag.from.i;
-      if (!this.state.slots[i]) this.state.slots[i] = { key: drag.type, flipAt: 0 };
+      if (!this.state.slots[i]) {
+        this.state.slots[i] = { id: drag.id, key: drag.type, flipAt: 0 };
+      }
     }
     this.state.drag = null;
     this.refillHand(false);
